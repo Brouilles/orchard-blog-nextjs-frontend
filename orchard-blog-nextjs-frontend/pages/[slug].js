@@ -1,14 +1,35 @@
 import Head from 'next/head'
-import Image from 'next/image'
 import styles from '../styles/Home.module.css'
 
-import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
+import { ApolloClient, ApolloLink, InMemoryCache, gql, HttpLink } from '@apollo/client';
 
 export const getServerSideProps = async (context) => {
     const slug = context.params.slug;
 
+    const tokenReq = await fetch('https://localhost:7032/connect/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'client_id=62a934cf62a94a1e8d10c74f0c5d7779'
+        + '&client_secret=52a9c9aba8dd448daee528ea6a417175'
+        + '&grant_type=client_credentials'
+    });
+    const tokenData = await tokenReq.json();
+
+    const httpLink = new HttpLink({ uri: 'https://localhost:7032/api/graphql' });
+    const authLink = new ApolloLink((operation, forward) => {
+        const token = tokenData.access_token;
+    
+        operation.setContext({
+        headers: {
+            authorization: token ? `Bearer ${token}` : ''
+        }
+        });
+    
+        return forward(operation);
+    });
+
     const client = new ApolloClient({
-        uri: 'https://localhost:7032/api/graphql',
+        link: authLink.concat(httpLink),
         cache: new InMemoryCache()
     });
 
